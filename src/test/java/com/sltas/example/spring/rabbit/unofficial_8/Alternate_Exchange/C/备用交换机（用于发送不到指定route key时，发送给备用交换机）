@@ -1,0 +1,7 @@
+Alternate Exchange
+
+Rabbitmq自己扩展的功能，不是AMQP协议定义的。
+Alternate Exchange属性的作用，创建Exchange指定该Exchange的Alternate Exchange属性，发送消息的时候根据route key并没有把消息路由到队列中去，这就会将此消息路由到Alternate Exchange属性指定的Exchange上了。
+
+
+链接：https://www.jianshu.com/p/b98e2feddd39

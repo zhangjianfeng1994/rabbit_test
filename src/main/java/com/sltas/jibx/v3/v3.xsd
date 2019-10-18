@@ -1,0 +1,42 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:tns="http://sltas.com/jibx/v3" elementFormDefault="qualified" targetNamespace="http://sltas.com/jibx/v3">
+  <xs:element type="tns:ufinterface" name="ufinterface"/>
+  <xs:complexType name="ufinterface">
+    <xs:sequence>
+      <xs:element type="xs:string" name="roottag" minOccurs="0"/>
+      <xs:element type="xs:string" name="billtype" minOccurs="0"/>
+      <xs:element type="xs:string" name="subtype" minOccurs="0"/>
+      <xs:element type="xs:string" name="replace" minOccurs="0"/>
+      <xs:element type="xs:string" name="sender" minOccurs="0"/>
+      <xs:element type="xs:string" name="proc" minOccurs="0"/>
+      <xs:element type="xs:string" name="isexchange" minOccurs="0"/>
+      <xs:element type="xs:string" name="filename" minOccurs="0"/>
+      <xs:element name="voucher" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element type="xs:string" name="id" minOccurs="0"/>
+            <xs:element name="voucherHead" minOccurs="0">
+              <xs:complexType>
+                <xs:sequence>
+                  <xs:element type="xs:string" name="prepay" minOccurs="0"/>
+                  <xs:element type="xs:string" name="corp" minOccurs="0"/>
+                  <xs:element type="xs:string" name="billTypeCode" minOccurs="0"/>
+                  <xs:element type="xs:string" name="businessType" minOccurs="0"/>
+                  <xs:element type="xs:string" name="billDate" minOccurs="0"/>
+                  <xs:element type="xs:string" name="sysid" minOccurs="0"/>
+                </xs:sequence>
+              </xs:complexType>
+            </xs:element>
+            <xs:element name="voucherBody" minOccurs="0">
+              <xs:complexType>
+                <xs:sequence>
+                  <xs:element type="xs:string" name="sumDirection" minOccurs="0"/>
+                  <xs:element type="xs:string" name="digest" minOccurs="0"/>
+                </xs:sequence>
+              </xs:complexType>
+            </xs:element>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>

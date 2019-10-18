@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	   xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:rabbit="http://www.springframework.org/schema/rabbit"
+       xsi:schemaLocation="http://www.springframework.org/schema/rabbit
+           http://www.springframework.org/schema/rabbit/spring-rabbit.xsd
+           http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans.xsd
+           http://www.springframework.org/schema/context
+    	   http://www.springframework.org/schema/context/spring-context-4.3.xsd">
+     
+	
+	<!-- 
+		如果您更喜欢XML配置，请使用该<rabbit:annotation-driven>元素; @RabbitListener将检测到任何带注释的bean  
+	 -->
+	<rabbit:annotation-driven/>
+
+   	<!-- 
+   		部分配置信息：
+   		host				ip地址
+   		port				端口
+   		username			账号
+   		password			密码
+   		channelCacheSize 	缓存通道大小 默认25 
+   		cache-mode			默认缓存模式是CHANNEL，但您可以将其配置为缓存连接; 在这种情况下，我们使用connection-cache-size
+   		addresses			如果在群集环境中运行，请使用addresses属性。 addresses="host1:5672,host2:5672"
+   		
+   	 --> 
+    <rabbit:connection-factory
+    	id="connectionFactory" 
+    	addresses="${rabbit.addresses}"
+    	username="${rabbit.username}"
+    	password="${rabbit.password}"
+    	virtual-host="${rabbit.virtual.host}"
+    	channel-cache-size="${rabbit.channel.cache.size}"
+    	publisher-returns="${rabbit.publisherReturns}"
+    	publisher-confirms="${rabbit.publisherConfirms}"
+    />
+    
+    <!-- 
+     * spring-amqp二个核心类RabbitAdmin和RabbitTemplate类
+	 * 1.RabbitAdmin类完成对Exchange，Queue，Binging的操作，在容器中管理了RabbitAdmin类的时候，可以对Exchange，Queue，Binging进行自动声明。
+	 * 2.RabbitTemplate类是发送和接收消息的工具类。
+     -->
+   	<!-- 
+		RabbitAdmin类完成对Exchange，Queue，Binging的操作，在容器中管理了RabbitAdmin类的时候，可以对Exchange，Queue，Binging进行自动声明。
+		auto-startup 					是否随容器一起启动（true/false） 
+		ignore-declaration-exceptions 	是否忽略申明差异（true/false） ,因队列/路由与已经存在的配置产生差异,如产生差异是否继续进行后续声明
+	-->
+	<rabbit:admin id="rabbitAdmin" connection-factory="connectionFactory"/>
+	
+	<!-- 
+		 * 发送端将出现三种异常情况（当前仅发现三种，后续还会继续增加）
+		 * 		 
+		 * 1.消息无法到达 （ReturnListener）,其中exchange找不到将触发Channel shutdown, routingKey找不到才会触发下面的方法,
+		 * 将在exchange通过routingKey不到指定的queue时触发rabbitTemplate.setReturnCallback()的方法
+		 * PS:因mandatory的特性，此错误必须捕获。否则将会对消息进行丢弃，无从查找,
+		 *	而且发送确认（publisher confirms）返回的应答结果是true,所以针对发送异常例如：routingKey找不到指定queue务必捕获这个异常,否则程序主体不会try catch捕获不到异常,一定注意！
+		 * 
+		 * 
+		 * 2.发送确认（publisher confirms）,其中exchange找不到将触发Channel shutdown, 
+		 * 将在exchange找不到时报出  reply-code=404, reply-text=NOT_FOUND - no exchange,
+		 * 但是会通过rabbitTemplate.setConfirmCallback()报出错误
+		 * PS:发送确认不进行捕获的同时，会在log4j中打印 Channel shutdown: channel error ,下面的error日志，但是仍然建议进行捕获,而且仍然不会触发try catch。
+		 * 	丢失数据，要比重复提交同样的消息更加可怕，保持程序的幂等性！
+		 * CachingConnectionFactory.java log(1349) - Channel shutdown: channel error; protocol method: #method<channel.close>(reply-code=404, reply-text=NOT_FOUND - no exchange 'sltas.direct.exchange1' in vhost '/', class-id=60, method-id=40)
+		 * PS2:闪断情况会导致 publisher confirms 返回 false
+		 * 	
+		 * 3.数据源异常
+		 * 例如：rabbitTemplate.convertAndSend 发送数据时，数据源异常，会直接触发try catch，此时的异常捕获才起到作用。
+		 * 	
+	 -->
+	<bean id="returnCallbackHandler" class="com.sltas.flow.rabbit.exception.handler.ReturnCallbackHandler"/>
+	<bean id="confirmCallbackHandler" class="com.sltas.flow.rabbit.exception.handler.ConfirmCallbackHandler"/>
+	
+	<!-- 
+		处理例外情况
+		
+		默认情况下，如果带注释的侦听器方法抛出异常，则会将其抛出到容器中，并且消息将被重新排队并重新传递，丢弃或路由到死信交换，具体取决于容器和代理配置。没有任何内容返回给发件人。
+		从2.0版开始，@RabbitListener注释有两个新属性：errorHandler和returnExceptions。
+		默认情况下不配置这些。
+		使用errorHandler提供实现的bean名称RabbitListenerErrorHandler。这个功能界面有一个方法：
+	 -->
+	
+	<bean id="customerListenerErrorHandler" class="com.sltas.flow.rabbit.exception.handler.CustomerListenerErrorHandler"/>
+	<!-- 
+		RabbitTemplate类是发送和接收消息的工具类。
+		mandatory			如果mandatory有设置，则当消息不能路由到队列中去的时候，会触发return method。如果mandatory没有设置，则当消息不能路由到队列的时候，server会删除该消息。	
+		
+	 -->
+    <rabbit:template id="rabbitTemplate" 
+    	connection-factory="connectionFactory"
+    	mandatory="true"
+    	return-callback="returnCallbackHandler"
+    	confirm-callback="confirmCallbackHandler"
+    />
+    
+    <bean id="simpleMessageConverter" class="org.springframework.amqp.support.converter.SimpleMessageConverter"/>
+
+	<import resource="applicationContext_rabbit_refund.xml" />
+	
+	<import resource="applicationContext_rabbit_response_push.xml" />
+
+</beans>

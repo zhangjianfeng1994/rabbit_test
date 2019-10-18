@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	   xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:rabbit="http://www.springframework.org/schema/rabbit"
+       xsi:schemaLocation="http://www.springframework.org/schema/rabbit
+           http://www.springframework.org/schema/rabbit/spring-rabbit.xsd
+           http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans.xsd
+           http://www.springframework.org/schema/context
+    	   http://www.springframework.org/schema/context/spring-context-4.3.xsd">
+     
+    <!-- 
+	    Dead Letter Exchange
+	
+		在队列上指定一个Exchange，则在该队列上发生如下情况，
+		1.消息被拒绝（basic.reject or basic.nack)，且requeue=false
+		2.消息过期而被删除（TTL）
+		3.消息数量超过队列最大限制而被删除
+		4.消息总大小超过队列最大限制而被删除
+     -->
+     
+     <!-- 
+         * RabbitMQ allows you to set TTL (time to live) for both messages and queues. This can be done using optional queue arguments or policies (the latter option is recommended). 
+    	 * Message TTL can be enforced for a single queue, a group of queues or applied for individual messages.
+    	 * RabbitMQ允许您为消息和队列设置TTL（生存时间）。 可以使用可选的队列参数或策略完成（推荐使用后一个选项）。 可以为单个队列，一组队列或单个消息应用消息TTL。
+    	 * 
+    	 * 如果同时制定了Message TTL，Queue TTL，则小的那个时间生效。
+    	 * messageProperties.setExpiration("20000");
+    	 * 
+    	 * Map<String, Object> arguments = new HashMap<>();
+    	 * arguments.put("x-message-ttl",30000);
+      -->
+	
+    <!-- =======================消息推送=====OPEN============================== -->
+    <!-- 推送报告延迟队列 Queue [x-message-ttl:30000/ms] 生产者 -->
+    <rabbit:queue id="responsePushTtlQueue" name="${rabbit.order.response.push.ttl.queue}" declared-by="rabbitAdmin">
+		<rabbit:queue-arguments>
+			<entry key="x-message-ttl">
+				<value type="java.lang.Long">${rabbit.order.response.push.ttl}</value>
+			</entry>
+			<entry key="x-dead-letter-exchange" value="${rabbit.order.response.push.direct.exchange}"/>
+			<entry key="x-dead-letter-routing-key" value="${rabbit.order.response.push.routingKey}"/>
+		</rabbit:queue-arguments>
+	</rabbit:queue> 
+	
+	<!-- 推送报告队列 Queue 消费者 -->
+    <rabbit:queue id="responsePushQueue" name="${rabbit.order.response.push.queue}" declared-by="rabbitAdmin">
+	</rabbit:queue> 
+	
+	<!-- 推送报告 Exchange -->
+	<rabbit:direct-exchange id="responsePushExchange" name="${rabbit.order.response.push.direct.exchange}" declared-by="rabbitAdmin">
+		<!-- <rabbit:exchange-arguments>
+			<entry key="alternate-exchange" value="${rabbit.order.refund.execute.alternate.fanout.exchange}"/>
+		</rabbit:exchange-arguments> -->
+		<rabbit:bindings>
+			<rabbit:binding queue="responsePushTtlQueue" key="${rabbit.order.response.push.ttl.routingKey}"/>
+			<rabbit:binding queue="responsePushQueue" key="${rabbit.order.response.push.routingKey}"/>
+		</rabbit:bindings>
+	</rabbit:direct-exchange>
+
+
+</beans>

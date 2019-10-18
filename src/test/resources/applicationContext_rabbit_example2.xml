@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	   xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:rabbit="http://www.springframework.org/schema/rabbit"
+       xsi:schemaLocation="http://www.springframework.org/schema/rabbit
+           http://www.springframework.org/schema/rabbit/spring-rabbit.xsd
+           http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans.xsd
+           http://www.springframework.org/schema/context
+    	   http://www.springframework.org/schema/context/spring-context-4.3.xsd">
+     
+	
+	<!-- 开启单独测试的时候开放 引入配置文件 -->
+	<bean id="propertyConfigurer"
+		class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+		<property name="locations">
+			<list>
+				<value>classpath*:rabbit.properties</value>
+			</list>
+		</property>
+	</bean>
+	
+	<context:component-scan base-package="com.sltas.flow.rabbit.server" />
+	
+	
+	<!-- 
+		如果您更喜欢XML配置，请使用该<rabbit:annotation-driven>元素; @RabbitListener将检测到任何带注释的bean  
+	 -->
+	<rabbit:annotation-driven/>
+
+   	<!-- 
+   		部分配置信息：
+   		host				ip地址
+   		port				端口
+   		username			账号
+   		password			密码
+   		channelCacheSize 	缓存通道大小 默认25 
+   		cache-mode			默认缓存模式是CHANNEL，但您可以将其配置为缓存连接; 在这种情况下，我们使用connection-cache-size
+   		addresses			如果在群集环境中运行，请使用addresses属性。 addresses="host1:5672,host2:5672"
+   		
+   	 --> 
+    <rabbit:connection-factory
+    	id="connectionFactory" 
+    	addresses="${rabbit.addresses}"
+    	username="${rabbit.username}"
+    	password="${rabbit.password}"
+    	virtual-host="${rabbit.virtual.host}"
+    	channel-cache-size="${rabbit.channel.cache.size}"
+    	publisher-returns="${rabbit.publisherReturns}"
+    	publisher-confirms="${rabbit.publisherConfirms}"
+    />
+    
+    <!-- 
+     * spring-amqp二个核心类RabbitAdmin和RabbitTemplate类
+	 * 1.RabbitAdmin类完成对Exchange，Queue，Binging的操作，在容器中管理了RabbitAdmin类的时候，可以对Exchange，Queue，Binging进行自动声明。
+	 * 2.RabbitTemplate类是发送和接收消息的工具类。
+     -->
+   	<!-- 
+		RabbitAdmin类完成对Exchange，Queue，Binging的操作，在容器中管理了RabbitAdmin类的时候，可以对Exchange，Queue，Binging进行自动声明。
+		auto-startup 					是否随容器一起启动（true/false） 
+		ignore-declaration-exceptions 	是否忽略申明差异（true/false） ,因队列/路由与已经存在的配置产生差异,如产生差异是否继续进行后续声明
+	-->
+	<rabbit:admin id="rabbitAdmin" connection-factory="connectionFactory"/>
+	
+	<!-- 
+		 * 发送端将出现三种异常情况（当前仅发现三种，后续还会继续增加）
+		 * 		 
+		 * 1.消息无法到达 （ReturnListener）,其中exchange找不到将触发Channel shutdown, routingKey找不到才会触发下面的方法,
+		 * 将在exchange通过routingKey不到指定的queue时触发rabbitTemplate.setReturnCallback()的方法
+		 * PS:因mandatory的特性，此错误必须捕获。否则将会对消息进行丢弃，无从查找,
+		 *	而且发送确认（publisher confirms）返回的应答结果是true,所以针对发送异常例如：routingKey找不到指定queue务必捕获这个异常,否则程序主体不会try catch捕获不到异常,一定注意！
+		 * 
+		 * 
+		 * 2.发送确认（publisher confirms）,其中exchange找不到将触发Channel shutdown, 
+		 * 将在exchange找不到时报出  reply-code=404, reply-text=NOT_FOUND - no exchange,
+		 * 但是会通过rabbitTemplate.setConfirmCallback()报出错误
+		 * PS:发送确认不进行捕获的同时，会在log4j中打印 Channel shutdown: channel error ,下面的error日志，但是仍然建议进行捕获,而且仍然不会触发try catch。
+		 * 	丢失数据，要比重复提交同样的消息更加可怕，保持程序的幂等性！
+		 * CachingConnectionFactory.java log(1349) - Channel shutdown: channel error; protocol method: #method<channel.close>(reply-code=404, reply-text=NOT_FOUND - no exchange 'sltas.direct.exchange1' in vhost '/', class-id=60, method-id=40)
+		 * PS2:闪断情况会导致 publisher confirms 返回 false
+		 * 	
+		 * 3.数据源异常
+		 * 例如：rabbitTemplate.convertAndSend 发送数据时，数据源异常，会直接触发try catch，此时的异常捕获才起到作用。
+		 * 	
+	 -->
+	<bean id="returnCallbackHandler" class="com.sltas.example.flow.rabbit.xml.ReturnCallbackHandler"/>
+	<bean id="confirmCallbackHandler" class="com.sltas.example.flow.rabbit.xml.ConfirmCallbackHandler"/>
+	<bean id="simpleRabbitListenerErrorHandler" class="com.sltas.example.flow.rabbit.xml.SimpleRabbitListenerErrorHandler"/>
+	<!-- 
+		RabbitTemplate类是发送和接收消息的工具类。
+		mandatory			如果mandatory有设置，则当消息不能路由到队列中去的时候，会触发return method。如果mandatory没有设置，则当消息不能路由到队列的时候，server会删除该消息。	
+		
+	 -->
+    <rabbit:template id="rabbitTemplate" 
+    	connection-factory="connectionFactory"
+    	mandatory="true"
+    	return-callback="returnCallbackHandler"
+    	confirm-callback="confirmCallbackHandler"
+    />
+
+    
+    <!-- =======================退款模块=====OPEN============================== -->
+    
+    
+    <!-- =======================退款执行主============================== -->
+    <!-- 退款执行 Queue [priority:10] -->
+    <rabbit:queue id="refundExecuteQueue" name="${rabbit.order.refund.execute.queue}" declared-by="rabbitAdmin">
+		<rabbit:queue-arguments>
+			<entry key="x-max-priority">
+				<value type="java.lang.Integer">10</value>
+			</entry>
+		</rabbit:queue-arguments>
+	</rabbit:queue> 
+	
+	<!-- 退款执行 Exchange [alternate-exchange:] -->
+	<rabbit:direct-exchange id="refundExecuteExchange" name="${rabbit.order.refund.execute.exchange}" declared-by="rabbitAdmin">
+		<rabbit:bindings>
+			<rabbit:binding queue="refundExecuteQueue" key="${rabbit.order.refund.execute.routingKey}"/>
+		</rabbit:bindings>
+	</rabbit:direct-exchange> 
+	
+	<!-- <rabbit:exchange-arguments>
+		<entry key="alternate-exchange" value="${rabbit.order.refund.execute.alternate.exchange}"/>
+	</rabbit:exchange-arguments> -->
+    
+    <!-- =======================退款执行备=============================== -->
+    <!-- 退款执行备用 Alternate Queue [priority:10] -->
+    <rabbit:queue id="refundExecuteAlternateQueue" name="${rabbit.order.refund.execute.alternate.queue}" declared-by="rabbitAdmin">
+		<rabbit:queue-arguments>
+			<entry key="x-max-priority">
+				<value type="java.lang.Integer">10</value>
+			</entry>
+		</rabbit:queue-arguments>
+	</rabbit:queue> 
+	
+	<!-- 退款执行备用 Alternate Exchange
+		 * 建议Alternate Exchange的类型是fanout，防止出现routingKey失败。
+		 * fanout exchange一般不需要指定Alternate Exchange(routingKey)属性。
+		 * 如果一个Exchange指定了Alternate Exchange，那就意味着，当Exchange和Alternate Exchange都无法路由的时候，才会触发return method。-->
+	
+	<rabbit:fanout-exchange id="refundExecuteAlternateExchange" name="${rabbit.order.refund.execute.alternate.exchange}" declared-by="rabbitAdmin">
+		<rabbit:bindings>
+			<rabbit:binding queue="refundExecuteAlternateQueue"/>
+		</rabbit:bindings>
+	</rabbit:fanout-exchange> 
+	
+    
+    <!-- 
+     	 * AcknowledgeMode 默认 AcknowledgeMode.AUTO
+         * 
+         * 
+         * 自动确认涉及到一个问题就是如果在消息消息的时候抛出异常，消息处理失败，但是因为自动确认而server将该消息删除了。
+         * NONE表示自动确认 
+         * 
+         * AcknowledgeMode.NONE：自动确认，等效于autoAck=true
+         * 
+         * AcknowledgeMode.MANUAL：手动确认，等效于autoAck=false，此时如果要实现ack和nack回执的话，使用ChannelAwareMessageListener监听器处理
+         * 
+         * AcknowledgeMode.AUTO 根据方法的执行情况来决定是否确认还是拒绝（是否重新入queue）
+         * 	如果消息成功被消费（成功的意思就是在消费的过程中没有抛出异常），则自动确认。
+         * 	1）当抛出AmqpRejectAndDontRequeueException异常的时候，则消息会被拒绝，且requeue=false（不重新入队列）
+         * 	2）当抛出ImmediateAcknowledgeAmqpException异常，则消费者会被确认
+         * 	3）其他的异常，则消息会被拒绝，且requeue=true（如果此时只有一个消费者监听该队列，则有发生死循环的风险，多消费端也会造成资源的极大浪费，这个在开发过程中一定要避免的）。可以通过setDefaultRequeueRejected（默认是true）去设置，
+         * 
+     -->
+    <bean id="refundRabbitListenerContainerFactory"
+      class="org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory">
+	    <property name="connectionFactory" ref="connectionFactory"/>
+	    <property name="concurrentConsumers" value="10"/>
+	    <property name="maxConcurrentConsumers" value="50"/>
+	    <property name="prefetchCount" value="1"/>
+	    <property name="consecutiveActiveTrigger" value="2"/>
+	    <property name="startConsumerMinInterval" value="1000"/>
+	</bean>
+	
+	<!-- 
+		* 重要参数汇总 org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer默认值可以参考这个文件
+		* 
+		* txSize（事务大小）			默认值1,与acknowledgeModeAUTO一起使用时，容器将在发送确认之前尝试处理此数量的消息（等待每个消息直到接收超时设置）。这也是在提交事务通道时。如果prefetchCount小于txSize，则会增加以匹配txSize。
+		* receiveTimeout（接收超时）	默认值1000,等待每条消息的最长时间。如果acknowledgeMode = NONE，则效果非常小 - 容器只旋转并请求另一条消息。它对事务Channel具有最大的影响txSize > 1，因为它可能导致已消耗的消息在超时到期之前不被确认。
+		* 
+		* 
+		* consecutiveActiveTrigger	默认值10,连续活跃触发
+		* startConsumerMinInterval	默认值10000,消费者开始最小间隔
+		* consecutiveIdleTrigger	默认值10,连续空闲触发
+		* stopConsumerMinInterval	默认值60000,停止消费最小间隔
+		* 
+	 -->
+	 
+	 <!-- 
+	 
+	 SimpleMessageListenerContainer一样
+
+		默认情况下，侦听器容器将启动单个使用者，该使用者将从队列接收消息。
+		
+		在检查上一节中的表时，您将看到许多控制并发性的属性/属性。最简单的是concurrentConsumers，它简单地创建了（固定的）消费者数量，这些消费者将同时处理消息。
+		
+		在版本1.3.0之前，这是唯一可用的设置，必须停止容器并再次启动以更改设置。
+		
+		从版本1.3.0开始，您现在可以动态调整concurrentConsumers属性。如果在容器运行时更​​改，则会根据需要添加或删除使用者以调整新设置。
+		
+		此外，maxConcurrentConsumers还添加了一个新属性，容器将根据工作负载动态调整并发性。此作品连同四个附加属性：consecutiveActiveTrigger，startConsumerMinInterval，consecutiveIdleTrigger，stopConsumerMinInterval。使用默认设置，增加消费者的算法的工作方式如下：
+		
+		如果maxConcurrentConsumers尚未达到并且现有消费者已连续10个周期处于活动状态并且自上次消费者启动以来已经过了至少10秒，则启动新的消费者。如果消费者在txSize* receiveTimeout毫秒内收到至少一条消息，则认为该消费者是活动的。
+		
+		使用默认设置，减少消费者的算法的工作方式如下：
+		
+		如果有多个concurrentConsumers运行并且消费者检测到10个连续超时（空闲）并且最后一个消费者在至少60秒前停止，则将停止消费者。超时取决于receiveTimeout和txSize属性。如果消费者在txSize* receiveTimeout毫秒内没有收到消息，则认为该消费者处于空闲状态。因此，在默认超时（1秒）和txSize4的情况下，将在40秒的空闲时间后停止消费者（4次超时对应1次空闲检测）。
+		
+		[注意]
+		实际上，只有整个容器闲置一段时间才会停止消费者。这是因为经纪人将在所有活跃的消费者之间分享其工作。
+		无论配置的队列数量如何，每个使用者都使用单个通道。
+		
+		与版本开始2.0的concurrentConsumers和maxConcurrentConsumers特性可与单个属性被设置concurrency; 例如"2-4"。
+		
+		DirectMessageListenerContainer
+		
+		使用此容器，并发性基于已配置的队列和consumersPerQueue。每个队列的每个使用者使用一个单独的通道，并发由Rabbit客户端库控制; 它默认使用5个线程的池; 您可以配置a taskExecutor以提供所需的最大并发性。
+	  -->
+    
+    <!-- =======================退款模块=====END============================== --> 
+
+
+</beans>

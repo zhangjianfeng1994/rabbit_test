@@ -1,0 +1,21 @@
+java -jar D:\code\jibx\jibx_1_3_1\jibx\lib\jibx-tools.jar org.jibx.binding.generator.BindGen -b bind.xml -s src\main\java com.sltas.jibx.v1.JibxBean
+
+java -cp bin;D:\ide\jibx_1_2_2\jibx\lib\jibx-tools.jar org.jibx.binding.generator.BindGen -b bind.xml -s src com.xh.bean.Student
+
+java -cp bin;D:\code\jibx\jibx_1_3_1\jibx\lib\jibx-tools.jar org.jibx.binding.generator.BindGen -b bind.xml -s src/main/java com.sltas.jibx.v1.JibxBean
+
+java -cp ../../lib/jibx-tools.jar:bin org.jibx.binding.generator.BindGen org.jibx.starter1.Order
+
+java -cp D:\code\jibx\jibx_1_3_1\jibx\lib\jibx-tools.jar;bin org.jibx.binding.generator.BindGen com.sltas.jibx.v1.JibxBean
+
+
+正式测试通过
+
+E:\商联在线\git\sltas_peak_flow\target\classes>java -cp D:\code\jibx\jibx_1_3_1\jibx\lib\jibx-tools.jar;bin org.jibx.binding.generator.BindGen com.sltas.jibx.v1.Student
+
+E:\商联在线\git\sltas_peak_flow\target\classes>java -cp D:\code\jibx\jibx_1_3_1\jibx\lib\jibx-bind.jar org.jibx.binding.Compile binding.xml
+
+https://blog.csdn.net/liupeifeng3514/article/details/79009932
+
+http://jibx.sourceforge.net/getting-started.html
+

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.sltas.order.mapper.OrderPayMapper">
+
+
+	<select id="searchLastOrderPaymene"   parameterType="com.sltas.order.domain.OrderPay"  resultType="com.sltas.order.domain.OrderPay">
+	
+			SELECT
+				p.id,
+				p.trans_no,
+				p.tran_user_id,
+				p.status_id
+			FROM
+				order_pay p
+			WHERE
+				p.trans_no = #{transNo}
+				<if test="tranUserId != null and tranUserId != ''">
+					AND p.tran_user_id = #{tranUserId}
+				</if>	
+			ORDER BY DESC LIMIT 1;
+	
+	</select>
+	
+</mapper>

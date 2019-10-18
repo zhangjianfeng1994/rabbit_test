@@ -1,0 +1,12 @@
+<binding xmlns:ns1="http://sltas.com/jibx/v1" name="binding" package="com.sltas.jibx.v1">
+  <namespace uri="http://sltas.com/jibx/v1" default="elements"/>
+  <mapping abstract="true" type-name="ns1:student" class="com.sltas.jibx.v1.Student">
+    <value style="element" name="name" field="name" usage="optional"/>
+    <value style="element" name="SNO" field="SNO" usage="optional"/>
+    <value style="element" name="classNO" field="classNO" usage="optional"/>
+    <value style="element" name="age" field="age" usage="optional"/>
+  </mapping>
+  <mapping class="com.sltas.jibx.v1.Student" name="student">
+    <structure map-as="ns1:student"/>
+  </mapping>
+</binding>

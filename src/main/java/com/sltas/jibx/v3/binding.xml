@@ -1,0 +1,31 @@
+<binding xmlns:ns1="http://sltas.com/jibx/v3" name="binding" package="com.sltas.jibx.v3">
+  <namespace uri="http://sltas.com/jibx/v3" default="elements"/>
+  <mapping abstract="true" type-name="ns1:ufinterface" class="com.sltas.jibx.v3.Ufinterface">
+    <value style="attribute" name="roottag" field="roottag" usage="optional"/>
+    <value style="attribute" name="billtype" field="billtype" usage="optional"/>
+    <value style="attribute" name="subtype" field="subtype" usage="optional"/>
+    <value style="element" name="replace" field="replace" usage="optional"/>
+    <value style="element" name="sender" field="sender" usage="optional"/>
+    <value style="element" name="proc" field="proc" usage="optional"/>
+    <value style="element" name="isexchange" field="isexchange" usage="optional"/>
+    <value style="element" name="filename" field="filename" usage="optional"/>
+    <structure field="voucher" usage="optional" name="voucher">
+      <value style="element" name="id" field="id" usage="optional"/>
+      <structure field="voucher_head" usage="optional" name="voucher_head">
+        <value style="element" name="prepay" field="prepay" usage="optional"/>
+        <value style="element" name="corp" field="corp" usage="optional"/>
+        <value style="element" name="billTypeCode" field="billTypeCode" usage="optional"/>
+        <value style="element" name="businessType" field="businessType" usage="optional"/>
+        <value style="element" name="billDate" field="billDate" usage="optional"/>
+        <value style="element" name="sysid" field="sysid" usage="optional"/>
+      </structure>
+      <structure field="voucher_body" usage="optional" name="voucher_body">
+        <value style="element" name="sumDirection" field="sum_direction" usage="optional"/>
+        <value style="element" name="digest" field="digest" usage="optional"/>
+      </structure>
+    </structure>
+  </mapping>
+  <mapping class="com.sltas.jibx.v3.Ufinterface" name="ufinterface">
+    <structure map-as="ns1:ufinterface"/>
+  </mapping>
+</binding>

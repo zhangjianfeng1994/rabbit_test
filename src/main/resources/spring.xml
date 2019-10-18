@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+	xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:tx="http://www.springframework.org/schema/tx" 
+	xmlns:p="http://www.springframework.org/schema/p"
+	xsi:schemaLocation="
+    http://www.springframework.org/schema/context
+    http://www.springframework.org/schema/context/spring-context-4.3.xsd
+    http://www.springframework.org/schema/beans
+    http://www.springframework.org/schema/beans/spring-beans-4.3.xsd
+    http://www.springframework.org/schema/tx
+    http://www.springframework.org/schema/tx/spring-tx-4.3.xsd
+    http://www.springframework.org/schema/aop
+    http://www.springframework.org/schema/aop/spring-aop-4.3.xsd">
+
+	<!-- 自动扫描quick4j包 ,将带有注解的类 纳入spring容器管理 -->
+	<context:component-scan base-package="com.sltas.order" />
+
+	<!-- 开启单独测试的时候开放 引入配置文件 -->
+	<bean id="propertyConfigurer"
+		class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+		<property name="locations">
+			<list>
+				<!-- <value>classpath*:redis/redis.properties</value>
+				<value>classpath*:rabbit/rabbit.properties</value> -->
+				<value>classpath*:mybatis/jdbc.properties</value>
+			</list>
+		</property>
+	</bean>
+	
+	<import resource="mybatis/spring-mybatis.xml"/>
+	<!-- <import resource="mybatis/spring-mybatis-plus.xml"/> -->
+	
+	<!-- <import resource="rabbit/spring-rabbit.xml"/>
+	<import resource="redis/spring-redis.xml"/>
+	<import resource="spring-threadPool.xml"/> -->
+	
+</beans>

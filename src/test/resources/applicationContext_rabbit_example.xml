@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:rabbit="http://www.springframework.org/schema/rabbit"
+       xsi:schemaLocation="http://www.springframework.org/schema/rabbit
+           http://www.springframework.org/schema/rabbit/spring-rabbit.xsd
+           http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans.xsd">
+           
+    
+    <bean id="connectionFactory"
+      class="org.springframework.amqp.rabbit.connection.CachingConnectionFactory">
+	    <constructor-arg value="127.0.0.1"/>			<!-- ip地址 -->
+	    <property name="username" value="guest"/>		<!-- 账号 -->
+	    <property name="password" value="guest"/>		<!-- 密码 -->
+	    <property name="channelCacheSize" value="50"/>	<!-- 缓存通道大小 默认25 -->
+	</bean>
+    
+    <!-- 还有一个SingleConnectionFactory实现只能在框架的单元测试代码中使用。
+		    它比CachingConnectionFactory不缓存通道更简单，但由于缺乏性能和弹性，它不适用于简单测试之外的实际使用。
+		    如果ConnectionFactory由于某种原因发现需要实现自己的，AbstractConnectionFactory基类可能提供一个很好的起点。 
+    -->
+    
+	<!-- ConnectionFactory可以使用rabbit命名空间快速方便地创建A ： 
+		channel-cache-size="50"									缓存通道大小 默认25
+		cache-mode="CONNECTION" connection-cache-size="25"		默认缓存模式是CHANNEL，但您可以将其配置为缓存连接; 在这种情况下，我们使用connection-cache-size：
+		host="somehost" port="5672"								可以使用命名空间提供主机和端口属性
+		addresses="host1:5672,host2:5672"						或者，如果在群集环境中运行，请使用addresses属性。
+	-->
+	
+	
+	
+	<rabbit:connection-factory
+    	id="connectionFactory" 
+    	channel-cache-size="50"		
+    	cache-mode="CONNECTION" 
+    	connection-cache-size="25"	
+    	host="somehost" 
+    	port="5672"
+    	addresses="host1:5672,host2:5672"
+    	
+    />
+	
+	<!-- 这是一个自定义线程工厂的示例，该工厂为线程名称添加前缀rabbitmq-。 -->
+	<rabbit:connection-factory id="multiHost" virtual-host="/bar" addresses="host1:1234,host2,host3:4567"
+	    thread-factory="tf"
+	    channel-cache-size="10" username="user" password="password" />
+	
+	<bean id="tf" class="org.springframework.scheduling.concurrent.CustomizableThreadFactory">
+	    <constructor-arg value="rabbitmq-" />
+	</bean>
+	
+	<!-- RabbitConnectionFactoryBean和配置SSL 
+		从版本1.4开始，RabbitConnectionFactoryBean提供了一种方便的方法，可以使用依赖注入在底层客户端连接工厂上方便地配置SSL属性。
+		其他setter只是委托给底层工厂。以前，您必须以编程方式配置SSL选项。
+		
+		有关配置SSL的信息，请参阅RabbitMQ文档。省略keyStore和trustStore配置以通过SSL连接而无需证书验证。密钥和信任存储配置可以如下提供：
+		该sslPropertiesLocation属性是一个Spring，Resource指向包含以下键的属性文件
+		
+		keyStore=file:/secret/keycert.p12
+		trustStore=file:/secret/trustStore
+		keyStore.passPhrase=secret
+		trustStore.passPhrase=secret
+		
+	 -->
+	<rabbit:connection-factory id="rabbitConnectionFactory"
+	    connection-factory="clientConnectionFactory"
+	    host="${host}"
+	    port="${port}"
+	    virtual-host="${vhost}"
+	    username="${username}" password="${password}" />
+
+	<bean id="clientConnectionFactory"
+	        class="org.springframework.amqp.rabbit.connection.RabbitConnectionFactoryBean">
+	    <property name="useSSL" value="true" />
+	    <property name="sslPropertiesLocation" value="file:/secrets/rabbitSSL.properties"/>
+	</bean>
+  
+  	
+  	<!-- 路由连接工厂
+
+		与开始1.3版本中，AbstractRoutingConnectionFactory已经出台。
+		这提供了一种机制来为多个映射配置映射ConnectionFactories并在运行时ConnectionFactory由某些人确定目标lookupKey。
+		通常，实现检查线程绑定上下文。为方便起见，Spring AMQP提供了SimpleRoutingConnectionFactory，它lookupKey从以下内容获取当前线程SimpleResourceHolder 
+	
+  	
+  	<bean id="simpleRoutingConnectionFactory"
+      class="org.springframework.amqp.rabbit.connection.SimpleRoutingConnectionFactory">
+		<property name="targetConnectionFactories">
+			<map>
+				<entry key="#{connectionFactory1.virtualHost}" ref="connectionFactory"/>
+				<entry key="#{connectionFactory2.virtualHost}" ref="rabbitConnectionFactory"/>
+			</map>
+		</property>
+	</bean> 
+	
+	<rabbit:template id="template" connection-factory="simpleRoutingConnectionFactory" />
+	-->
+  	
+  	<!-- 从版本1.3开始，您现在可以配置RabbitTemplate使用a RetryTemplate来帮助处理代理连接问题。
+  		有关完整信息，请参阅spring-retry项目; 以下只是一个使用指数退避策略的示例，默认情况下SimpleRetryPolicy会在将异常抛出给调用者之前进行三次尝试。
+  	 -->
+  	
+	<rabbit:template id="template" connection-factory="connectionFactory" retry-template="retryTemplate"/>
+
+	<bean id="retryTemplate" class="org.springframework.retry.support.RetryTemplate">
+	    <property name="backOffPolicy">
+	        <bean class="org.springframework.retry.backoff.ExponentialBackOffPolicy">
+	            <property name="initialInterval" value="500" />
+	            <property name="multiplier" value="10.0" />
+	            <property name="maxInterval" value="10000" />
+	        </bean>
+	    </property>
+	</bean>
+	
+	<!-- 作为“活动”组件，最常见的是使用bean定义创建侦听器容器，以便它可以在后台运行。这可以通过XML完成 -->
+	
+	<rabbit:listener-container connection-factory="rabbitConnectionFactory" >
+	    <rabbit:listener queues="some.queue" ref="somePojo" method="handle"/>
+	</rabbit:listener-container>
+	
+	
+	<bean id="rabbitListenerContainerFactory"
+      class="org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory">
+	    <property name="connectionFactory" ref="connectionFactory"/>
+	    <property name="concurrentConsumers" value="3"/>
+	    <property name="maxConcurrentConsumers" value="10"/>
+	</bean>
+	
+	
+	<bean class="org.springframework.amqp.rabbit.core.RabbitTemplate">
+	    <property name="connectionFactory" ref="rabbitConnectionFactory"/>
+	    <property name="messageConverter">
+	        <bean class="org.springframework.amqp.support.converter.Jackson2JsonMessageConverter">
+	            <!-- if necessary, override the DefaultClassMapper -->
+	            <property name="classMapper" ref="customClassMapper"/>
+	        </bean>
+	    </property>
+	</bean>
+	
+	<bean id="jsonConverterWithDefaultType"
+      	class="o.s.amqp.support.converter.Jackson2JsonMessageConverter">
+	    <property name="classMapper">
+	        <bean class="org.springframework.amqp.support.converter.DefaultClassMapper">
+	            <property name="defaultType" value="foo.PurchaseOrder"/>
+	        </bean>
+	    </property>
+	</bean>
+	
+	<bean class="org.springframework.amqp.rabbit.core.RabbitTemplate">
+	    <property name="connectionFactory" ref="rabbitConnectionFactory"/>
+	    <property name="messageConverter">
+	        <bean class="org.springframework.amqp.support.converter.MarshallingMessageConverter">
+	            <constructor-arg ref="someImplemenationOfMarshallerAndUnmarshaller"/>
+	        </bean>
+	    </property>
+	</bean>
+
+	<bean id="contentTypeConverter" class="ContentTypeDelegatingMessageConverter">
+	    <property name="delegates">
+	        <map>
+	            <entry key="application/json" value-ref="jsonMessageConverter" />
+	            <entry key="application/xml" value-ref="xmlMessageConverter" />
+	        </map>
+	    </property>
+	</bean>
+	
+	<bean id="client"
+		class="org.springframework.amqp.remoting.client.AmqpProxyFactoryBean">
+		<property name="amqpTemplate" ref="template" />
+		<property name="serviceInterface" value="foo.ServiceInterface" />
+	</bean>
+	
+	<rabbit:connection-factory id="connectionFactory" />
+	
+	<rabbit:template id="template" connection-factory="connectionFactory" reply-timeout="2000"
+		routing-key="remoting.binding" exchange="remoting.exchange" />
+	
+	<rabbit:admin connection-factory="connectionFactory" />
+	
+	<rabbit:queue name="remoting.queue" />
+	
+	<rabbit:direct-exchange name="remoting.exchange">
+		<rabbit:bindings>
+			<rabbit:binding queue="remoting.queue" key="remoting.binding" />
+		</rabbit:bindings>
+	</rabbit:direct-exchange>
+	<bean id="listener"
+		class="org.springframework.amqp.remoting.service.AmqpInvokerServiceExporter">
+		<property name="serviceInterface" value="foo.ServiceInterface" />
+		<property name="service" ref="service" />
+		<property name="amqpTemplate" ref="template" />
+	</bean>
+	
+	<bean id="service" class="foo.ServiceImpl" />
+	
+	<rabbit:connection-factory id="connectionFactory" />
+	
+	<rabbit:template id="template" connection-factory="connectionFactory" />
+	
+	<rabbit:queue name="remoting.queue" />
+	
+	<rabbit:listener-container connection-factory="connectionFactory">
+		<rabbit:listener ref="listener" queue-names="remoting.queue" />
+	</rabbit:listener-container>
+	
+	<rabbit:queue id="tradeQueue"/>
+
+	<rabbit:queue id="marketDataQueue"/>
+	
+	<fanout-exchange name="broadcast.responses"
+	                 xmlns="http://www.springframework.org/schema/rabbit">
+	    <bindings>
+	        <binding queue="tradeQueue"/>
+	    </bindings>
+	</fanout-exchange>
+	
+	<topic-exchange name="app.stock.marketdata"
+	                xmlns="http://www.springframework.org/schema/rabbit">
+	    <bindings>
+	        <binding queue="marketDataQueue" pattern="${stocks.quote.pattern}"/>
+	    </bindings>
+	</topic-exchange>
+	
+	<rabbit:queue name="withArguments">
+	    <rabbit:queue-arguments value-type="java.lang.Long">
+	        <entry key="x-message-ttl" value="100"/>
+	    </rabbit:queue-arguments>
+	</rabbit:queue>
+	
+	
+	<rabbit:queue id="otherAnon" declared-by="containerAdmin" />
+
+	<rabbit:direct-exchange name="otherExchange" auto-delete="true" declared-by="containerAdmin">
+	    <rabbit:bindings>
+	        <rabbit:binding queue="otherAnon" key="otherAnon" />
+	    </rabbit:bindings>
+	</rabbit:direct-exchange>
+	
+	<rabbit:listener-container  auto-startup="false">
+	    <rabbit:listener id="listener2" ref="foo" queues="otherAnon" admin="containerAdmin" />
+	</rabbit:listener-container>
+	
+	<rabbit:admin id="containerAdmin" connection-factory="rabbitConnectionFactory"
+	    auto-startup="false" />
+	    
+	 <rabbit:listener-container connection-factory="rabbitConnectionFactory">
+	    <rabbit:listener queues="some.queue" ref="somePojo" method="handle" priority="10" />
+	</rabbit:listener-container>
+		
+</beans>

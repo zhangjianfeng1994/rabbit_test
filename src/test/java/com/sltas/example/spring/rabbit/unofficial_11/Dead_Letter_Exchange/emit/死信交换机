@@ -1,0 +1,9 @@
+Dead Letter Exchange
+
+在队列上指定一个Exchange，则在该队列上发生如下情况，
+1.消息被拒绝（basic.reject or basic.nack)，且requeue=false
+2.消息过期而被删除（TTL）
+3.消息数量超过队列最大限制而被删除
+4.消息总大小超过队列最大限制而被删除
+
+链接：https://www.jianshu.com/p/e95096bc8ac4

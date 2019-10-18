@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:rabbit="http://www.springframework.org/schema/rabbit"
+       xsi:schemaLocation="http://www.springframework.org/schema/rabbit
+           http://www.springframework.org/schema/rabbit/spring-rabbit.xsd
+           http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans.xsd">
+           
+    
+   <!-- 
+   		部分配置信息：
+   		host				ip地址
+   		port				端口
+   		username			账号
+   		password			密码
+   		channelCacheSize 	缓存通道大小 默认25 
+   		cache-mode			默认缓存模式是CHANNEL，但您可以将其配置为缓存连接; 在这种情况下，我们使用connection-cache-size
+   		addresses			如果在群集环境中运行，请使用addresses属性。 addresses="host1:5672,host2:5672"
+   --> 
+   <rabbit:connection-factory
+    	id="connectionFactory" 
+    	addresses="${rabbit.addresses}"
+    	username="${rabbit.username}"
+    	password="${rabbit.password}"
+    />
+	
+	<!-- 
+		RabbitAdmin类完成对Exchange，Queue，Binging的操作，在容器中管理了RabbitAdmin类的时候，可以对Exchange，Queue，Binging进行自动声明。
+		
+		auto-startup 					是否随容器一起启动（true/false） 
+		ignore-declaration-exceptions 	是否忽略申明差异（true/false） ,因队列/路由与已经存在的配置产生差异,如产生差异是否继续进行后续声明
+	-->
+	<rabbit:admin id="rabbitAdmin" connection-factory="connectionFactory"/>
+	
+	<!-- 
+		RabbitTemplate类是发送和接收消息的工具类。
+		
+		mandatory			如果mandatory有设置，则当消息不能路由到队列中去的时候，会触发return method。如果mandatory没有设置，则当消息不能路由到队列的时候，server会删除该消息。	
+				
+	 -->
+	<rabbit:template id="rabbitTemplate" connection-factory="connectionFactory"/>
+	
+	<!-- 
+		declared-by 引用那个rabbitAdmin  declared-by="admin1, admin2"
+	-->
+	
+	<rabbit:queue id="queue" name="sltas.info" declared-by="rabbitAdmin">
+		<rabbit:queue-arguments>
+			<entry key="x-max-priority">
+				<value type="java.lang.Integer">10</value>
+			</entry>
+		</rabbit:queue-arguments>
+	</rabbit:queue>
+	
+	<!-- 
+		auto-declare	持久的队列（队列将在服务器重启时存活），持久true
+		auto-delete		自动删除队列，autoDelete true（服务器将在不再使用时删除它,不会关注里面是否仍然存在数据）
+	 -->
+	<rabbit:direct-exchange name="sltas.direct.exchange" declared-by="rabbitAdmin">
+		<rabbit:bindings>
+			<rabbit:binding queue="queue" key="sltas.info.routingKey"/>
+		</rabbit:bindings>
+	</rabbit:direct-exchange>
+	
+	<bean id="messageHandler" class="com.framework.rabbit.xml.ChannelAwareMessage"/>
+	
+	<bean id="consumerTag" class="com.framework.rabbit.xml.ConsumerTag"/>
+	
+	<rabbit:listener-container 
+			connection-factory="connectionFactory" 
+			concurrency="5" 
+			max-concurrency="10"
+			prefetch="1"
+			consumer-tag-strategy="consumerTag"
+	>
+	    <rabbit:listener queues="queue" ref="messageHandler" method="onMessage"/>
+	</rabbit:listener-container>
+
+</beans>

@@ -1,0 +1,11 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:tns="http://sltas.com/jibx/v1" elementFormDefault="qualified" targetNamespace="http://sltas.com/jibx/v1">
+  <xs:element type="tns:student" name="student"/>
+  <xs:complexType name="student">
+    <xs:sequence>
+      <xs:element type="xs:string" name="name" minOccurs="0"/>
+      <xs:element type="xs:string" name="SNO" minOccurs="0"/>
+      <xs:element type="xs:string" name="classNO" minOccurs="0"/>
+      <xs:element type="xs:string" name="age" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>
