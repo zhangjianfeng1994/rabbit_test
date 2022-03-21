@@ -41,7 +41,7 @@
 		<!-- mysql-connector -->
 		<mysql.connector.version>8.0.11</mysql.connector.version>
 		<!-- dubbo -->
-		<dubbo.version>2.6.0</dubbo.version>
+		<dubbo.version>2.6.9</dubbo.version>
 		<!-- io.netty -->
 		<netty.all.version>4.1.32.Final</netty.all.version>
 		<!-- zip4j -->
